@@ -1,6 +1,8 @@
 # 🤖 Slack Activity Reminder Bot
 
-Slack bot that automatically checks expert activities in Databricks daily at 7 PM and sends reminders. Designed for tracking report submissions in Toloka platform.
+**Activity Control System for Workforce Managers**
+
+Slack bot that automatically monitors expert activities across offline platforms via Databricks data warehouse. Sends daily reminders to experts and summary reports to workforce management teams at 7 PM. Designed to track report submissions and ensure complete activity coverage for expert teams.
 
 **Status:** Production Ready | **Version:** 1.0
 
@@ -8,16 +10,22 @@ Slack bot that automatically checks expert activities in Databricks daily at 7 P
 
 ## 📋 What It Does
 
+**For Workforce Managers:**
+- **Activity Monitoring** — Tracks which experts completed their offline platform activities
+- **Daily Reports** — Summary at 7 PM showing completion status for each expert
+- **Automated Reminders** — Direct Slack notifications to experts who missed submissions
+- **Accountability** — Ensures complete coverage and identifies gaps in real-time
+
 **Daily Workflow:**
-1. **7 PM Check** — Queries Databricks for expert activities
+1. **7 PM Check** — Queries Databricks for expert activities on offline platforms
 2. **Smart Filtering** — Only checks `monday_subitem_id` configured per expert
 3. **Sends Reminders** — DM to experts with no activity found
-4. **Manager Reports** — Summary of who filled/missed reports
-5. **Logs Everything** — Actions logged to systemd journalctl + SQLite
+4. **Manager Reports** — Summary of who filled/missed reports to workforce management team
+5. **Logs Everything** — Actions logged to systemd journalctl + SQLite for audit trail
 
 **Admin Management:**
 - 17 slash commands for managing experts, subitems, managers, admins
-- Enable/disable activity tracking per expert
+- Enable/disable activity tracking per expert and per activity type
 - Admin-only access (Slack User IDs verified from DB)
 
 ---
