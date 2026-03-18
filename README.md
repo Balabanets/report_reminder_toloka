@@ -23,11 +23,6 @@ Slack bot designed for systematic tracking of off-platform expert activities —
 4. **Manager Reports** — Summary showing who submitted/missed reports sent to workforce managers
 5. **Logs Everything** — Complete audit trail in systemd journalctl + SQLite for compliance
 
-**Admin Management:**
-- 17 slash commands for managing experts, subitems, managers, admins
-- Enable/disable activity tracking per expert and per activity type
-- Admin-only access (Slack User IDs verified from DB)
-
 ---
 
 ## 🏗️ Architecture
@@ -153,27 +148,6 @@ cursor.execute("SELECT * WHERE worker_id = ?", (worker_id,))
 - ❌ Full command parameters
 - ❌ Expert slack_ids
 
-**View logs:**
-```bash
-journalctl -u slack-reminder-bot -f          # Real-time
-journalctl -u slack-reminder-bot -n 50       # Last 50
-journalctl -u slack-reminder-bot | grep ERROR # Errors
-```
-
----
-
-## 📋 Commands (17 Total)
-
-**Experts (4):** `/expert-add`, `/expert-remove`, `/expert-list`, `/expert-toggle`
-
-**Subitems (4):** `/expert-subitem-add`, `/expert-subitem-remove`, `/expert-subitem-list`, `/expert-subitem-toggle`
-
-**Managers (3):** `/manager-add`, `/manager-remove`, `/manager-list`
-
-**Admins (3):** `/admin-add`, `/admin-remove`, `/admin-list`
-
-**Bot (3):** `/bot-help`, `/bot-run-now`, `/bot-status`
-
 ---
 
 ## 🗄️ Database Schema
@@ -187,18 +161,3 @@ journalctl -u slack-reminder-bot | grep ERROR # Errors
 | `run_log` | Execution history (prevents duplicate reminders) |
 
 **Protection:** `UNIQUE(run_date, run_type)` in run_log prevents duplicate reminders if bot restarts same day.
-
----
-
-## 🚀 Deployment
-
-**Runs as systemd service on Linux:**
-- Auto-start on boot
-- Auto-restart on crash
-- Logs to journalctl
-- User: `creative`
-- Python 3.10+
-
----
-
-**Built for Toloka report tracking** 🎯
