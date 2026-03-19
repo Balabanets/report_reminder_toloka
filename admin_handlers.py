@@ -75,6 +75,7 @@ class AdminHandlers:
         self.notifier.send_ephemeral(command["channel_id"], user_id, help_text)
 
     def cmd_expert_add(self, ack: Ack, command: dict, say: Say, context: BoltContext):
+        logger.info("cmd_expert_add called", user_id=context.user_id)
         ack()
         user_id = context.user_id
         if not self._check_admin(user_id):
@@ -129,6 +130,7 @@ class AdminHandlers:
         )
 
     def cmd_expert_list(self, ack: Ack, command: dict, say: Say, context: BoltContext):
+        logger.info("cmd_expert_list called", user_id=context.user_id)
         ack()
         user_id = context.user_id
         if not self._check_admin(user_id):
