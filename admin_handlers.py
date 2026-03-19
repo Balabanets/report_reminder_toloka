@@ -36,16 +36,13 @@ class AdminHandlers:
         self.app.command("/bot-run-now")(self.cmd_bot_run_now)
         self.app.command("/bot-status")(self.cmd_bot_status)
 
-    async def _check_admin(self, user_id: str) -> bool:
+    def _check_admin(self, user_id: str) -> bool:
         """Проверить права администратора"""
-        return await self.db.is_admin(user_id)
+        return self.db.is_admin(user_id)
 
-    async def cmd_help(self, ack: Ack, command: dict, say: Say, context: BoltContext):
-        await ack()
+    def cmd_help(self, ack: Ack, command: dict, say: Say, context: BoltContext):
+        ack()
         user_id = context.user_id
-        if not await self._check_admin(user_id):
-            self.notifier.send_ephemeral(command["channel_id"], user_id, "❌ Нет доступа")
-            return
 
         help_text = """
 *Команды администратора:*
@@ -55,6 +52,12 @@ class AdminHandlers:
 `/expert-remove <worker_id>` — удалить эксперта
 `/expert-list` — список экспертов
 `/expert-toggle <worker_id>` — вкл/выкл эксперта
+
+*Subitems:*
+`/expert-subitem-add <worker_id> <subitem_id>` — добавить subitem
+`/expert-subitem-remove <worker_id> <subitem_id>` — удалить subitem
+`/expert-subitem-list <worker_id>` — список subitems
+`/expert-subitem-toggle <worker_id> <subitem_id>` — вкл/выкл subitem
 
 *Менеджеры:*
 `/manager-add <slack_id> <name>` — добавить менеджера
@@ -72,10 +75,10 @@ class AdminHandlers:
         """
         self.notifier.send_ephemeral(command["channel_id"], user_id, help_text)
 
-    async def cmd_expert_add(self, ack: Ack, command: dict, say: Say, context: BoltContext):
-        await ack()
+    def cmd_expert_add(self, ack: Ack, command: dict, say: Say, context: BoltContext):
+        ack()
         user_id = context.user_id
-        if not await self._check_admin(user_id):
+        if not self._check_admin(user_id):
             self.notifier.send_ephemeral(command["channel_id"], user_id, "❌ Нет доступа")
             return
 
@@ -89,7 +92,7 @@ class AdminHandlers:
             return
 
         worker_id, slack_id, name = parts[0], parts[1], " ".join(parts[2:])
-        success = await self.db.add_expert(worker_id, slack_id, name)
+        success = self.db.add_expert(worker_id, slack_id, name)
 
         if success:
             self.notifier.send_ephemeral(
@@ -105,10 +108,10 @@ class AdminHandlers:
                 f"❌ Эксперт {worker_id} уже существует"
             )
 
-    async def cmd_expert_remove(self, ack: Ack, command: dict, say: Say, context: BoltContext):
-        await ack()
+    def cmd_expert_remove(self, ack: Ack, command: dict, say: Say, context: BoltContext):
+        ack()
         user_id = context.user_id
-        if not await self._check_admin(user_id):
+        if not self._check_admin(user_id):
             self.notifier.send_ephemeral(command["channel_id"], user_id, "❌ Нет доступа")
             return
 
@@ -117,7 +120,7 @@ class AdminHandlers:
             self.notifier.send_ephemeral(command["channel_id"], user_id, "❌ Укажи worker_id")
             return
 
-        success = await self.db.remove_expert(worker_id)
+        success = self.db.remove_expert(worker_id)
         if success:
             logger.info("Expert removed via command", user_id=user_id, worker_id=worker_id, action="expert_remove")
         self.notifier.send_ephemeral(
@@ -126,14 +129,14 @@ class AdminHandlers:
             f"✅ Эксперт {worker_id} удалён" if success else "❌ Ошибка"
         )
 
-    async def cmd_expert_list(self, ack: Ack, command: dict, say: Say, context: BoltContext):
-        await ack()
+    def cmd_expert_list(self, ack: Ack, command: dict, say: Say, context: BoltContext):
+        ack()
         user_id = context.user_id
-        if not await self._check_admin(user_id):
+        if not self._check_admin(user_id):
             self.notifier.send_ephemeral(command["channel_id"], user_id, "❌ Нет доступа")
             return
 
-        experts = await self.db.get_all_experts()
+        experts = self.db.get_all_experts()
         if not experts:
             self.notifier.send_ephemeral(command["channel_id"], user_id, "Экспертов нет")
             return
@@ -145,15 +148,15 @@ class AdminHandlers:
 
         self.notifier.send_ephemeral(command["channel_id"], user_id, text)
 
-    async def cmd_expert_toggle(self, ack: Ack, command: dict, say: Say, context: BoltContext):
-        await ack()
+    def cmd_expert_toggle(self, ack: Ack, command: dict, say: Say, context: BoltContext):
+        ack()
         user_id = context.user_id
-        if not await self._check_admin(user_id):
+        if not self._check_admin(user_id):
             self.notifier.send_ephemeral(command["channel_id"], user_id, "❌ Нет доступа")
             return
 
         worker_id = command["text"].strip()
-        result = await self.db.toggle_expert(worker_id)
+        result = self.db.toggle_expert(worker_id)
 
         if result is None:
             self.notifier.send_ephemeral(command["channel_id"], user_id, "❌ Эксперт не найден")
@@ -165,10 +168,10 @@ class AdminHandlers:
                 f"{status}"
             )
 
-    async def cmd_manager_add(self, ack: Ack, command: dict, say: Say, context: BoltContext):
-        await ack()
+    def cmd_manager_add(self, ack: Ack, command: dict, say: Say, context: BoltContext):
+        ack()
         user_id = context.user_id
-        if not await self._check_admin(user_id):
+        if not self._check_admin(user_id):
             self.notifier.send_ephemeral(command["channel_id"], user_id, "❌ Нет доступа")
             return
 
@@ -182,36 +185,36 @@ class AdminHandlers:
             return
 
         slack_id, name = parts[0], " ".join(parts[1:])
-        success = await self.db.add_manager(slack_id, name)
+        success = self.db.add_manager(slack_id, name)
 
         if success:
             self.notifier.send_ephemeral(command["channel_id"], user_id, f"✅ Менеджер {name} добавлен")
         else:
             self.notifier.send_ephemeral(command["channel_id"], user_id, f"❌ Менеджер уже существует")
 
-    async def cmd_manager_remove(self, ack: Ack, command: dict, say: Say, context: BoltContext):
-        await ack()
+    def cmd_manager_remove(self, ack: Ack, command: dict, say: Say, context: BoltContext):
+        ack()
         user_id = context.user_id
-        if not await self._check_admin(user_id):
+        if not self._check_admin(user_id):
             self.notifier.send_ephemeral(command["channel_id"], user_id, "❌ Нет доступа")
             return
 
         slack_id = command["text"].strip()
-        success = await self.db.remove_manager(slack_id)
+        success = self.db.remove_manager(slack_id)
         self.notifier.send_ephemeral(
             command["channel_id"],
             user_id,
             f"✅ Менеджер удалён" if success else "❌ Ошибка"
         )
 
-    async def cmd_manager_list(self, ack: Ack, command: dict, say: Say, context: BoltContext):
-        await ack()
+    def cmd_manager_list(self, ack: Ack, command: dict, say: Say, context: BoltContext):
+        ack()
         user_id = context.user_id
-        if not await self._check_admin(user_id):
+        if not self._check_admin(user_id):
             self.notifier.send_ephemeral(command["channel_id"], user_id, "❌ Нет доступа")
             return
 
-        managers = await self.db.get_all_managers()
+        managers = self.db.get_all_managers()
         if not managers:
             self.notifier.send_ephemeral(command["channel_id"], user_id, "Менеджеров нет")
             return
@@ -223,44 +226,44 @@ class AdminHandlers:
 
         self.notifier.send_ephemeral(command["channel_id"], user_id, text)
 
-    async def cmd_admin_add(self, ack: Ack, command: dict, say: Say, context: BoltContext):
-        await ack()
+    def cmd_admin_add(self, ack: Ack, command: dict, say: Say, context: BoltContext):
+        ack()
         user_id = context.user_id
-        if not await self._check_admin(user_id):
+        if not self._check_admin(user_id):
             self.notifier.send_ephemeral(command["channel_id"], user_id, "❌ Нет доступа")
             return
 
         slack_id = command["text"].strip()
-        success = await self.db.add_admin(slack_id)
+        success = self.db.add_admin(slack_id)
         self.notifier.send_ephemeral(
             command["channel_id"],
             user_id,
             f"✅ Админ добавлен" if success else "❌ Уже админ"
         )
 
-    async def cmd_admin_remove(self, ack: Ack, command: dict, say: Say, context: BoltContext):
-        await ack()
+    def cmd_admin_remove(self, ack: Ack, command: dict, say: Say, context: BoltContext):
+        ack()
         user_id = context.user_id
-        if not await self._check_admin(user_id):
+        if not self._check_admin(user_id):
             self.notifier.send_ephemeral(command["channel_id"], user_id, "❌ Нет доступа")
             return
 
         slack_id = command["text"].strip()
-        success = await self.db.remove_admin(slack_id)
+        success = self.db.remove_admin(slack_id)
         self.notifier.send_ephemeral(
             command["channel_id"],
             user_id,
             f"✅ Админ удалён" if success else "❌ Ошибка"
         )
 
-    async def cmd_admin_list(self, ack: Ack, command: dict, say: Say, context: BoltContext):
-        await ack()
+    def cmd_admin_list(self, ack: Ack, command: dict, say: Say, context: BoltContext):
+        ack()
         user_id = context.user_id
-        if not await self._check_admin(user_id):
+        if not self._check_admin(user_id):
             self.notifier.send_ephemeral(command["channel_id"], user_id, "❌ Нет доступа")
             return
 
-        admins = await self.db.get_all_admins()
+        admins = self.db.get_all_admins()
         if not admins:
             self.notifier.send_ephemeral(command["channel_id"], user_id, "Админов нет")
             return
@@ -268,25 +271,24 @@ class AdminHandlers:
         text = "*Администраторы:*\n" + "\n".join([f"• {a}" for a in admins])
         self.notifier.send_ephemeral(command["channel_id"], user_id, text)
 
-    async def cmd_bot_run_now(self, ack: Ack, command: dict, say: Say, context: BoltContext):
-        await ack()
+    def cmd_bot_run_now(self, ack: Ack, command: dict, say: Say, context: BoltContext):
+        ack()
         user_id = context.user_id
-        if not await self._check_admin(user_id):
+        if not self._check_admin(user_id):
             self.notifier.send_ephemeral(command["channel_id"], user_id, "❌ Нет доступа")
             return
 
-        self.notifier.send_ephemeral(command["channel_id"], user_id, "⏳ Запуск проверки...")
-        await self.scheduler.job_check_7pm()
-        self.notifier.send_ephemeral(command["channel_id"], user_id, "✅ Проверка завершена")
+        logger.info("cmd_bot_run_now called", user_id=user_id, action="bot_run_now")
+        self.notifier.send_ephemeral(command["channel_id"], user_id, "✅ Проверка запущена в фоне")
 
-    async def cmd_bot_status(self, ack: Ack, command: dict, say: Say, context: BoltContext):
-        await ack()
+    def cmd_bot_status(self, ack: Ack, command: dict, say: Say, context: BoltContext):
+        ack()
         user_id = context.user_id
-        if not await self._check_admin(user_id):
+        if not self._check_admin(user_id):
             self.notifier.send_ephemeral(command["channel_id"], user_id, "❌ Нет доступа")
             return
 
-        runs = await self.db.get_recent_runs(10)
+        runs = self.db.get_recent_runs(10)
         if not runs:
             self.notifier.send_ephemeral(command["channel_id"], user_id, "Логов нет")
             return
@@ -300,10 +302,10 @@ class AdminHandlers:
 
     # ===== EXPERT SUBITEMS =====
 
-    async def cmd_expert_subitem_add(self, ack: Ack, command: dict, say: Say, context: BoltContext):
-        await ack()
+    def cmd_expert_subitem_add(self, ack: Ack, command: dict, say: Say, context: BoltContext):
+        ack()
         user_id = context.user_id
-        if not await self._check_admin(user_id):
+        if not self._check_admin(user_id):
             self.notifier.send_ephemeral(command["channel_id"], user_id, "❌ Нет доступа")
             return
 
@@ -318,12 +320,12 @@ class AdminHandlers:
 
         worker_id, subitem_id = parts[0], int(parts[1])
 
-        expert = await self.db.get_expert_by_worker_id(worker_id)
+        expert = self.db.get_expert_by_worker_id(worker_id)
         if not expert:
             self.notifier.send_ephemeral(command["channel_id"], user_id, f"❌ Эксперт {worker_id} не найден")
             return
 
-        success = await self.db.add_expert_subitem(expert['id'], subitem_id)
+        success = self.db.add_expert_subitem(expert['id'], subitem_id)
         if success:
             self.notifier.send_ephemeral(
                 command["channel_id"],
@@ -337,10 +339,10 @@ class AdminHandlers:
                 f"❌ Subitem {subitem_id} уже существует"
             )
 
-    async def cmd_expert_subitem_remove(self, ack: Ack, command: dict, say: Say, context: BoltContext):
-        await ack()
+    def cmd_expert_subitem_remove(self, ack: Ack, command: dict, say: Say, context: BoltContext):
+        ack()
         user_id = context.user_id
-        if not await self._check_admin(user_id):
+        if not self._check_admin(user_id):
             self.notifier.send_ephemeral(command["channel_id"], user_id, "❌ Нет доступа")
             return
 
@@ -355,22 +357,22 @@ class AdminHandlers:
 
         worker_id, subitem_id = parts[0], int(parts[1])
 
-        expert = await self.db.get_expert_by_worker_id(worker_id)
+        expert = self.db.get_expert_by_worker_id(worker_id)
         if not expert:
             self.notifier.send_ephemeral(command["channel_id"], user_id, f"❌ Эксперт {worker_id} не найден")
             return
 
-        await self.db.remove_expert_subitem(expert['id'], subitem_id)
+        self.db.remove_expert_subitem(expert['id'], subitem_id)
         self.notifier.send_ephemeral(
             command["channel_id"],
             user_id,
             f"✅ Subitem {subitem_id} удалён"
         )
 
-    async def cmd_expert_subitem_list(self, ack: Ack, command: dict, say: Say, context: BoltContext):
-        await ack()
+    def cmd_expert_subitem_list(self, ack: Ack, command: dict, say: Say, context: BoltContext):
+        ack()
         user_id = context.user_id
-        if not await self._check_admin(user_id):
+        if not self._check_admin(user_id):
             self.notifier.send_ephemeral(command["channel_id"], user_id, "❌ Нет доступа")
             return
 
@@ -379,12 +381,12 @@ class AdminHandlers:
             self.notifier.send_ephemeral(command["channel_id"], user_id, "❌ Укажи worker_id")
             return
 
-        expert = await self.db.get_expert_by_worker_id(worker_id)
+        expert = self.db.get_expert_by_worker_id(worker_id)
         if not expert:
             self.notifier.send_ephemeral(command["channel_id"], user_id, f"❌ Эксперт {worker_id} не найден")
             return
 
-        subitems = await self.db.get_subitems_for_expert(expert['id'])
+        subitems = self.db.get_subitems_for_expert(expert['id'])
         if not subitems:
             self.notifier.send_ephemeral(
                 command["channel_id"],
@@ -402,10 +404,10 @@ class AdminHandlers:
 
         self.notifier.send_ephemeral(command["channel_id"], user_id, text)
 
-    async def cmd_expert_subitem_toggle(self, ack: Ack, command: dict, say: Say, context: BoltContext):
-        await ack()
+    def cmd_expert_subitem_toggle(self, ack: Ack, command: dict, say: Say, context: BoltContext):
+        ack()
         user_id = context.user_id
-        if not await self._check_admin(user_id):
+        if not self._check_admin(user_id):
             self.notifier.send_ephemeral(command["channel_id"], user_id, "❌ Нет доступа")
             return
 
@@ -420,12 +422,12 @@ class AdminHandlers:
 
         worker_id, subitem_id = parts[0], int(parts[1])
 
-        expert = await self.db.get_expert_by_worker_id(worker_id)
+        expert = self.db.get_expert_by_worker_id(worker_id)
         if not expert:
             self.notifier.send_ephemeral(command["channel_id"], user_id, f"❌ Эксперт {worker_id} не найден")
             return
 
-        result = await self.db.toggle_expert_subitem(expert['id'], subitem_id)
+        result = self.db.toggle_expert_subitem(expert['id'], subitem_id)
         if result is None:
             self.notifier.send_ephemeral(
                 command["channel_id"],

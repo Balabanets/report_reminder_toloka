@@ -9,7 +9,7 @@ class Notifier:
     def __init__(self, app: App):
         self.app = app
 
-    async def send_reminder(self, expert: Dict[str, Any], first: bool = True):
+    def send_reminder(self, expert: Dict[str, Any], first: bool = True):
         """Отправить напоминание эксперту"""
         slack_user_id = expert["slack_user_id"]
         name = expert.get("name", "Expert")
@@ -51,7 +51,7 @@ class Notifier:
                 error=str(e)
             )
 
-    async def send_manager_report(
+    def send_manager_report(
         self,
         manager: Dict[str, Any],
         report_filled: List[Dict[str, Any]],

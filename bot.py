@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import asyncio
 import threading
 import logging
 import sys
@@ -55,7 +54,7 @@ handlers = None
 handler = None
 
 
-async def initialize():
+def initialize():
     """Инициализация приложения"""
     global db, notifier, scheduler, handlers
 
@@ -63,13 +62,13 @@ async def initialize():
 
     # Инициализировать БД
     db = Database(config.DB_PATH)
-    await db.init()
+    db.init()
 
     # Инициализировать первого админа если нужно
     if config.INITIAL_ADMIN_SLACK_ID:
-        admins = await db.get_all_admins()
+        admins = db.get_all_admins()
         if not admins:
-            await db.add_admin(config.INITIAL_ADMIN_SLACK_ID)
+            db.add_admin(config.INITIAL_ADMIN_SLACK_ID)
             logger.info("Initial admin added", slack_id=config.INITIAL_ADMIN_SLACK_ID)
 
     # Инициализировать notifier
@@ -92,6 +91,15 @@ def handle_mention(body, say):
     say("👋 Привет! Используй `/bot-help` для списка команд.")
 
 
+@app.command("/bot-help")
+def handle_help(ack, command, body):
+    """Обработчик команды /bot-help"""
+    ack()
+    return {
+        "text": "✅ БОТ РАБОТАЕТ!\n\nКоманды активны. Используй /expert-list или другие команды."
+    }
+
+
 def start_slack_handler():
     """Запустить Slack Socket Mode handler в основном потоке"""
     global handler
@@ -105,9 +113,9 @@ def start_slack_handler():
         logger.error("Socket handler error", error=str(e), exc_info=True)
 
 
-async def main():
-    """Основная async функция"""
-    await initialize()
+def main():
+    """Основная функция"""
+    initialize()
 
     # Запустить Slack handler в отдельном потоке
     slack_thread = threading.Thread(target=start_slack_handler, daemon=True)
@@ -115,10 +123,11 @@ async def main():
 
     logger.info("Bot running. Press Ctrl+C to stop.")
 
-    # Держать event loop активным
+    # Держать основной поток активным
     try:
         while True:
-            await asyncio.sleep(1)
+            import time
+            time.sleep(1)
     except KeyboardInterrupt:
         logger.info("Shutting down...")
         if scheduler:
@@ -129,7 +138,7 @@ async def main():
 
 if __name__ == "__main__":
     try:
-        asyncio.run(main())
+        main()
     except KeyboardInterrupt:
         logger.info("Bot stopped")
 
