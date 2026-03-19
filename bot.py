@@ -92,12 +92,16 @@ def handle_mention(body, say):
 
 
 @app.command("/bot-help")
-def handle_help(ack, command, body):
+def handle_help(ack, command, body, context):
     """Обработчик команды /bot-help"""
     ack()
-    return {
-        "text": "✅ БОТ РАБОТАЕТ!\n\nКоманды активны. Используй /expert-list или другие команды."
-    }
+    user_id = context.user_id
+    text = "✅ БОТ РАБОТАЕТ!\n\nКоманды активны. Используй /expert-list или другие команды."
+    app.client.chat_postEphemeral(
+        channel=command["channel_id"],
+        user=user_id,
+        text=text
+    )
 
 
 def start_slack_handler():

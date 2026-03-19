@@ -18,7 +18,6 @@ class AdminHandlers:
 
     def register_handlers(self):
         """Регистрировать все обработчики"""
-        self.app.command("/bot-help")(self.cmd_help)
         self.app.command("/expert-add")(self.cmd_expert_add)
         self.app.command("/expert-remove")(self.cmd_expert_remove)
         self.app.command("/expert-list")(self.cmd_expert_list)
