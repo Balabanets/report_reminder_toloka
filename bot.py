@@ -94,6 +94,7 @@ def handle_mention(body, say):
 @app.command("/bot-help")
 def handle_help(ack, command, body, context):
     """Обработчик команды /bot-help"""
+    logger.info("handle_help called")
     ack()
     user_id = context.user_id
     text = "✅ БОТ РАБОТАЕТ!\n\nКоманды активны. Используй /expert-list или другие команды."

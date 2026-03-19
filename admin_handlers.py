@@ -18,9 +18,12 @@ class AdminHandlers:
 
     def register_handlers(self):
         """Регистрировать все обработчики"""
+        logger.info("Registering command handlers...")
         self.app.command("/expert-add")(self.cmd_expert_add)
+        logger.info("Registered /expert-add")
         self.app.command("/expert-remove")(self.cmd_expert_remove)
         self.app.command("/expert-list")(self.cmd_expert_list)
+        logger.info("Registered /expert-list")
         self.app.command("/expert-toggle")(self.cmd_expert_toggle)
         self.app.command("/expert-subitem-add")(self.cmd_expert_subitem_add)
         self.app.command("/expert-subitem-remove")(self.cmd_expert_subitem_remove)
@@ -34,6 +37,8 @@ class AdminHandlers:
         self.app.command("/admin-list")(self.cmd_admin_list)
         self.app.command("/bot-run-now")(self.cmd_bot_run_now)
         self.app.command("/bot-status")(self.cmd_bot_status)
+        logger.info("Registered /bot-status")
+        logger.info("All command handlers registered successfully")
 
     def _check_admin(self, user_id: str) -> bool:
         """Проверить права администратора"""
