@@ -5,9 +5,9 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=creative
-WorkingDirectory=/home/creative/Документы/my-projects/bots-toloka/reminder_bot_toloka
-ExecStart=/home/creative/Документы/my-projects/bots-toloka/reminder_bot_toloka/venv/bin/python bot.py
+User=%i
+WorkingDirectory=/opt/reminder_bot_toloka
+ExecStart=/opt/reminder_bot_toloka/venv/bin/python bot.py
 Restart=always
 RestartSec=10
 StartLimitIntervalSec=0
@@ -15,6 +15,11 @@ StartLimitIntervalSec=0
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=slack-reminder-bot
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/opt/reminder_bot_toloka/data
 
 [Install]
 WantedBy=multi-user.target
