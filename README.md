@@ -81,11 +81,21 @@ Regular users (experts, managers) have **no commands** — they only receive aut
 
 ### Access Model
 
-| Role | What they receive | Commands |
-|------|------------------|----------|
-| **Expert** | DM reminder if report is missing | None |
-| **Manager** | Daily summary report at 19:00 | None |
-| **Admin** | Nothing automatic | All commands above |
+**Experts** — tracked employees who fill out activity reports.
+- Receive a DM reminder if their report is missing for the previous day
+- Reminder includes a direct link to the activity form
+- No access to any bot commands
+
+**Managers** — team leads who monitor report completion.
+- Receive a daily summary report at 19:00 showing who filled / who missed
+- Filled experts are listed with specific subitem names (e.g. Samples creation, QA)
+- No access to any bot commands
+
+**Admins** — bot operators who manage configuration.
+- Full access to all slash commands listed above
+- Can add/remove experts, managers, and other admins
+- Can trigger manual checks (`/bot-run-now`) and previews (`/bot-dry-run`)
+- Do not receive any automated messages
 
 ---
 
