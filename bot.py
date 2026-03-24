@@ -2,8 +2,10 @@
 
 import threading
 import logging
+import signal
 import sys
 import os
+import atexit
 from slack_bolt.app import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 import structlog
@@ -24,6 +26,14 @@ if os.path.exists(PIDFILE):
         sys.exit(1)
     except (ProcessLookupError, ValueError):
         pass
+
+def cleanup_pid():
+    try:
+        os.remove(PIDFILE)
+    except OSError:
+        pass
+
+atexit.register(cleanup_pid)
 
 with open(PIDFILE, 'w') as f:
     f.write(str(os.getpid()))
@@ -122,8 +132,22 @@ def start_slack_handler():
         logger.error("Socket handler error", error=str(e), exc_info=True)
 
 
+def shutdown(signum=None, frame=None):
+    """Graceful shutdown on SIGTERM/SIGINT"""
+    logger.info("Shutting down...", signal=signum)
+    if scheduler:
+        scheduler.shutdown()
+    if handler:
+        handler.close()
+    cleanup_pid()
+    sys.exit(0)
+
+
 def main():
     """Основная функция"""
+    signal.signal(signal.SIGTERM, shutdown)
+    signal.signal(signal.SIGINT, shutdown)
+
     initialize()
 
     # Запустить Slack handler в отдельном потоке
@@ -138,16 +162,9 @@ def main():
             import time
             time.sleep(1)
     except KeyboardInterrupt:
-        logger.info("Shutting down...")
-        if scheduler:
-            scheduler.shutdown()
-        if handler:
-            handler.close()
+        shutdown()
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except KeyboardInterrupt:
-        logger.info("Bot stopped")
+    main()
 
