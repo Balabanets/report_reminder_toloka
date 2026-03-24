@@ -41,28 +41,51 @@ Slack Reminder Bot (Python)
 
 ## Slash Commands
 
-All commands require admin access (RBAC check on every call).
+All commands are **admin-only** — non-admins receive "Access denied".
 
+Regular users (experts, managers) have **no commands** — they only receive automated DM reminders and reports.
+
+### Expert Management
+| Command | Usage | Description |
+|---------|-------|-------------|
+| `/expert-add` | `[worker_id] [slack_id] [name]` | Add a new expert |
+| `/expert-remove` | `[worker_id]` | Remove an expert |
+| `/expert-list` | | List all experts with status and @mentions |
+| `/expert-toggle` | `[worker_id]` | Enable/disable an expert |
+
+### Subitem Management
+| Command | Usage | Description |
+|---------|-------|-------------|
+| `/expert-subitem-add` | `[worker_id] [subitem_id]` | Add activity subitem to expert |
+| `/expert-subitem-remove` | `[worker_id] [subitem_id]` | Remove activity subitem |
+| `/expert-subitem-list` | `[worker_id]` | List subitems for expert |
+| `/expert-subitem-toggle` | `[worker_id] [subitem_id]` | Enable/disable a subitem |
+
+### Manager & Admin Management
+| Command | Usage | Description |
+|---------|-------|-------------|
+| `/manager-add` | `[slack_id] [full name]` | Add a report manager |
+| `/manager-remove` | `[slack_id]` | Remove a manager |
+| `/manager-list` | | List all managers |
+| `/admin-add` | `[slack_id]` | Add a bot admin |
+| `/admin-remove` | `[slack_id]` | Remove a bot admin |
+| `/admin-list` | | List all admins |
+
+### Bot Control
 | Command | Description |
 |---------|-------------|
-| `/bot-help` | Show bot status |
-| `/expert-add` | Add expert (worker_id, slack_id, name) |
-| `/expert-remove` | Remove expert by worker_id |
-| `/expert-list` | List all experts with status |
-| `/expert-toggle` | Enable/disable expert |
-| `/manager-add` | Add manager (slack_id, name) |
-| `/manager-remove` | Remove manager |
-| `/manager-list` | List managers |
-| `/admin-add` | Add admin |
-| `/admin-remove` | Remove admin |
-| `/admin-list` | List admins |
-| `/subitem-add` | Add monday subitem to expert |
-| `/subitem-remove` | Remove subitem |
-| `/subitem-list` | List subitems for expert |
-| `/subitem-toggle` | Enable/disable subitem |
-| `/bot-run-now` | Trigger 7 PM check manually |
-| `/bot-status` | Show recent run log |
-| `/audit-log` | View admin action history |
+| `/bot-dry-run` | Preview report (no reminders sent, only you see it) |
+| `/bot-run-now` | Run daily check now (sends reminders + manager report) |
+| `/bot-status` | Show recent run history |
+| `/bot-help` | Show all available commands |
+
+### Access Model
+
+| Role | What they receive | Commands |
+|------|------------------|----------|
+| **Expert** | DM reminder if report is missing | None |
+| **Manager** | Daily summary report at 19:00 | None |
+| **Admin** | Nothing automatic | All commands above |
 
 ---
 
