@@ -60,7 +60,10 @@ class Scheduler:
                 ]
 
                 if filtered_activities:
-                    report_filled.append(expert)
+                    filled_subitem_ids = sorted(set(
+                        a['monday_subitem_id'] for a in filtered_activities
+                    ))
+                    report_filled.append((expert, filled_subitem_ids))
                     logger.info(
                         "Expert has activities",
                         worker_id=expert['worker_id'],

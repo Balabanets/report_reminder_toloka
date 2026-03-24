@@ -7,6 +7,16 @@ import requests
 logger = structlog.get_logger()
 
 
+SUBITEM_NAMES = {
+    18384837243: "Samples creation",
+    100000000546: "Management work",
+    10000000924: "QA",
+    100000002343: "Production",
+    18384837445: "Claude subscription",
+    100000001744: "Onboarding",
+}
+
+
 class Notifier:
     def __init__(self, app: App):
         self.app = app
@@ -53,24 +63,32 @@ class Notifier:
     def send_manager_report(
         self,
         manager: Dict[str, Any],
-        report_filled: List[Dict[str, Any]],
+        report_filled: List[tuple],
         report_missing: List[Dict[str, Any]]
     ):
-        """Send activity report to a manager"""
-        slack_user_id = manager["slack_user_id"]
+        """Send activity report to a manager.
 
-        filled_text = "\n".join(
-            [f"• {e['name']} ({e['worker_id']})" for e in report_filled]
-        ) or "none"
+        report_filled: list of (expert_dict, [filled_subitem_ids])
+        """
+        slack_user_id = manager["slack_user_id"]
+        yesterday = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
+
+        filled_lines = []
+        for expert, filled_subitem_ids in report_filled:
+            names = ", ".join(
+                SUBITEM_NAMES.get(sid, str(sid)) for sid in filled_subitem_ids
+            )
+            filled_lines.append(f"• {expert['name']} ({names})")
+        filled_text = "\n".join(filled_lines) or "none"
 
         missing_text = "\n".join(
-            [f"• {e['name']} ({e['worker_id']})" for e in report_missing]
+            [f"• {e['name']}" for e in report_missing]
         ) or "none"
 
         text = (
-            f"📊 Activity Report\n\n"
-            f"✅ Report filled ({len(report_filled)}):\n{filled_text}\n\n"
-            f"❌ Report missing ({len(report_missing)}):\n{missing_text}"
+            f":bar_chart: *Daily Activity Report — {yesterday}*\n\n"
+            f":white_check_mark: Report filled ({len(report_filled)}):\n{filled_text}\n\n"
+            f":x: Report missing ({len(report_missing)}):\n{missing_text}"
         )
 
         try:
