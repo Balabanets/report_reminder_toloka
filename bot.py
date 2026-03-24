@@ -109,24 +109,6 @@ def handle_mention(body, say):
     say("👋 Hi! Use `/bot-help` to see the list of commands.")
 
 
-@app.command("/bot-help")
-def handle_help(ack, body, client, command):
-    """Handle /bot-help command"""
-    logger.info("handle_help called", user_id=body.get("user_id"))
-    ack()
-    user_id = body.get("user_id")
-    channel_id = body.get("channel_id")
-    text = "✅ BOT IS RUNNING!\n\nCommands are active. Use /expert-list or other commands."
-    try:
-        client.chat_postEphemeral(
-            channel=channel_id,
-            user=user_id,
-            text=text
-        )
-    except Exception as e:
-        logger.error("Failed to send help message", error=str(e))
-
-
 def start_slack_handler():
     """Запустить Slack Socket Mode handler в основном потоке"""
     global handler

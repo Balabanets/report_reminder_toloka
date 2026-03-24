@@ -23,6 +23,7 @@ class AdminHandlers:
     def register_handlers(self):
         """Register all command handlers"""
         logger.info("Registering command handlers...")
+        self.app.command("/bot-help")(self.cmd_help)
         self.app.command("/expert-add")(self.cmd_expert_add)
         logger.info("Registered /expert-add")
         self.app.command("/expert-remove")(self.cmd_expert_remove)
@@ -40,6 +41,7 @@ class AdminHandlers:
         self.app.command("/admin-remove")(self.cmd_admin_remove)
         self.app.command("/admin-list")(self.cmd_admin_list)
         self.app.command("/bot-run-now")(self.cmd_bot_run_now)
+        self.app.command("/bot-dry-run")(self.cmd_bot_dry_run)
         self.app.command("/bot-status")(self.cmd_bot_status)
         logger.info("Registered /bot-status")
         logger.info("All command handlers registered successfully")
@@ -78,8 +80,10 @@ class AdminHandlers:
 `/admin-list` — list admins
 
 *Bot Control:*
-`/bot-run-now` — run check now
-`/bot-status` — status and run logs
+`/bot-dry-run` — preview report (no reminders sent, only you see it)
+`/bot-run-now` — run daily check (sends reminders + manager report)
+`/bot-status` — show recent run history
+`/bot-help` — this help message
         """
         self.notifier.send_ephemeral(command["response_url"], help_text)
 
@@ -153,10 +157,12 @@ class AdminHandlers:
             self.notifier.send_ephemeral(command["response_url"], "No experts found")
             return
 
-        text = "*Expert List:*\n"
+        text = f"*Expert List ({len(experts)}):*\n"
         for e in experts:
             status = "✅" if e["active"] else "❌"
-            text += f"{status} {e['name']} ({e['worker_id']}) - {e['slack_user_id']}\n"
+            wid = e['worker_id']
+            wid_short = f"{wid[:6]}…{wid[-6:]}" if len(wid) > 14 else wid
+            text += f"{status} {e['name']} — `{wid_short}` — <@{e['slack_user_id']}>\n"
 
         self.notifier.send_ephemeral(command["response_url"], text)
 
@@ -235,10 +241,10 @@ class AdminHandlers:
             self.notifier.send_ephemeral(command["response_url"], "No managers found")
             return
 
-        text = "*Manager List:*\n"
+        text = f"*Manager List ({len(managers)}):*\n"
         for m in managers:
             status = "✅" if m["active"] else "❌"
-            text += f"{status} {m['name']} - {m['slack_user_id']}\n"
+            text += f"{status} {m['name']} — <@{m['slack_user_id']}>\n"
 
         self.notifier.send_ephemeral(command["response_url"], text)
 
@@ -289,7 +295,15 @@ class AdminHandlers:
             self.notifier.send_ephemeral(command["response_url"], "No admins found")
             return
 
-        text = "*Admins:*\n" + "\n".join([f"• {a}" for a in admins])
+        lines = []
+        for slack_id in admins:
+            try:
+                resp = self.app.client.users_info(user=slack_id)
+                name = resp["user"].get("real_name", slack_id)
+            except Exception:
+                name = slack_id
+            lines.append(f"• {name} — <@{slack_id}>")
+        text = f"*Admin List ({len(admins)}):*\n" + "\n".join(lines)
         self.notifier.send_ephemeral(command["response_url"], text)
 
     def cmd_bot_run_now(self, ack: Ack, command: dict, say: Say, context: BoltContext):
@@ -300,7 +314,25 @@ class AdminHandlers:
             return
 
         self.db.log_audit(user_id, "bot_run_now", "")
-        self.notifier.send_ephemeral(command["response_url"], "✅ Check started in background")
+        self.notifier.send_ephemeral(command["response_url"], "✅ Check started — reminders will be sent to experts")
+        import threading
+        threading.Thread(target=self.scheduler.job_check_7pm, kwargs={"manual": True}, daemon=True).start()
+
+    def cmd_bot_dry_run(self, ack: Ack, command: dict, say: Say, context: BoltContext):
+        ack()
+        user_id = context.user_id
+        if not self._check_admin(user_id):
+            self.notifier.send_ephemeral(command["response_url"], "❌ Access denied")
+            return
+
+        self.db.log_audit(user_id, "bot_dry_run", "")
+        self.notifier.send_ephemeral(command["response_url"], "✅ Dry run started — report will be sent only to you, no expert reminders")
+        import threading
+        threading.Thread(
+            target=self.scheduler.job_check_7pm,
+            kwargs={"dry_run": True, "dry_run_user": user_id},
+            daemon=True
+        ).start()
 
     def cmd_bot_status(self, ack: Ack, command: dict, say: Say, context: BoltContext):
         ack()

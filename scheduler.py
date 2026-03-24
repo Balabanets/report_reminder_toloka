@@ -14,22 +14,28 @@ class Scheduler:
         self.notifier = notifier
         self.scheduler = BackgroundScheduler(timezone=timezone)
 
-    def job_check_7pm(self):
-        """7 PM — основная проверка активностей"""
+    def job_check_7pm(self, dry_run: bool = False, dry_run_user: str = None, manual: bool = False):
+        """7 PM — основная проверка активностей.
+
+        dry_run=True: no reminders to experts, no run_log, report sent only to dry_run_user.
+        manual=True: skip duplicate check (always run).
+        """
         run_date = date.today().isoformat()
 
-        # Защита от дублирования
-        if self.db.run_log_exists(run_date, 'check_7pm'):
-            logger.info("job_check_7pm already ran today, skipping")
-            return
+        if not dry_run and not manual:
+            # Защита от дублирования (только авто, игнорирует ручные запуски)
+            if self.db.run_log_exists(run_date, 'check_7pm_auto'):
+                logger.info("job_check_7pm auto already ran today, skipping")
+                return
 
-        logger.info("Starting job_check_7pm")
+        logger.info("Starting job_check_7pm", dry_run=dry_run)
 
         try:
             experts = self.db.get_active_experts()
             if not experts:
                 logger.warning("No active experts found")
-                self.db.log_run(run_date, 'check_7pm', 'completed')
+                if not dry_run:
+                    self.db.log_run(run_date, 'check_7pm', 'completed')
                 return
 
             # Батчевый запрос для всех экспертов
@@ -46,7 +52,6 @@ class Scheduler:
                 active_subitems = self.db.get_active_subitems_for_expert(expert['worker_id'])
 
                 if not active_subitems:
-                    # Если subitems не установлены - пропустить эксперта
                     logger.warning(
                         "Expert has no subitems configured, skipping",
                         worker_id=expert['worker_id']
@@ -64,40 +69,42 @@ class Scheduler:
                         a['monday_subitem_id'] for a in filtered_activities
                     ))
                     report_filled.append((expert, filled_subitem_ids))
-                    logger.info(
-                        "Expert has activities",
-                        worker_id=expert['worker_id'],
-                        total_activities=len(activities),
-                        filtered_activities=len(filtered_activities),
-                        subitems=active_subitems
-                    )
                 else:
-                    # Отправляем напоминание в ЛС эксперту
-                    self.notifier.send_reminder(expert, first=True)
+                    if not dry_run:
+                        self.notifier.send_reminder(expert, first=True)
                     report_missing.append(expert)
-                    logger.info(
-                        "Expert has no activities for configured subitems, reminder sent",
-                        worker_id=expert['worker_id'],
-                        configured_subitems=active_subitems
+
+            if dry_run and dry_run_user:
+                # Send report only to the admin who triggered dry run
+                dry_run_manager = {"slack_user_id": dry_run_user}
+                self.notifier.send_manager_report(
+                    dry_run_manager, report_filled, report_missing
+                )
+            else:
+                # Send to all managers
+                managers = self.db.get_active_managers()
+                for manager in managers:
+                    self.notifier.send_manager_report(
+                        manager, report_filled, report_missing
                     )
 
-            # Отправляем отчёт всем активным менеджерам
-            managers = self.db.get_active_managers()
-            for manager in managers:
-                self.notifier.send_manager_report(
-                    manager, report_filled, report_missing
-                )
+            if not dry_run:
+                run_type = 'check_7pm_manual' if manual else 'check_7pm_auto'
+                self.db.log_run(run_date, run_type, 'completed')
 
-            self.db.log_run(run_date, 'check_7pm', 'completed')
             logger.info(
                 "job_check_7pm completed",
+                dry_run=dry_run,
+                manual=manual,
                 filled=len(report_filled),
                 missing=len(report_missing)
             )
 
         except Exception as e:
             logger.error("job_check_7pm failed", error=str(e), exc_info=True)
-            self.db.log_run(run_date, 'check_7pm', 'failed')
+            if not dry_run:
+                run_type = 'check_7pm_manual' if manual else 'check_7pm_auto'
+                self.db.log_run(run_date, run_type, 'failed')
 
     def add_jobs(self):
         """Добавить задачи в планировщик"""

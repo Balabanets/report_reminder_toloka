@@ -87,8 +87,8 @@ class Notifier:
 
         text = (
             f":bar_chart: *Daily Activity Report — {yesterday}*\n\n"
-            f":white_check_mark: Report filled ({len(report_filled)}):\n{filled_text}\n\n"
-            f":x: Report missing ({len(report_missing)}):\n{missing_text}"
+            f":white_check_mark: *Report filled ({len(report_filled)}):*\n{filled_text}\n\n"
+            f":x: *Report missing ({len(report_missing)}):*\n{missing_text}"
         )
 
         try:
