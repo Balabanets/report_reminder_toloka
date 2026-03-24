@@ -65,8 +65,18 @@ class Database:
                 CREATE INDEX IF NOT EXISTS idx_experts_slack_user_id ON experts(slack_user_id);
                 CREATE INDEX IF NOT EXISTS idx_managers_slack_user_id ON managers(slack_user_id);
                 CREATE INDEX IF NOT EXISTS idx_run_log_date_type ON run_log(run_date, run_type);
+                CREATE TABLE IF NOT EXISTS audit_log (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id TEXT NOT NULL,
+                    action TEXT NOT NULL,
+                    details TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+
                 CREATE INDEX IF NOT EXISTS idx_expert_subitems_expert_id ON expert_subitems(expert_id);
                 CREATE INDEX IF NOT EXISTS idx_expert_subitems_active ON expert_subitems(active);
+                CREATE INDEX IF NOT EXISTS idx_audit_log_user_id ON audit_log(user_id);
+                CREATE INDEX IF NOT EXISTS idx_audit_log_created_at ON audit_log(created_at);
             """)
             db.commit()
             logger.info("Database initialized")
@@ -348,6 +358,29 @@ class Database:
             )
             rows = cursor.fetchall()
             return [row[0] for row in rows]
+
+    # ===== AUDIT LOG =====
+    def log_audit(self, user_id: str, action: str, details: str = ""):
+        """Record an admin action in the audit log"""
+        try:
+            with sqlite3.connect(self.db_path) as db:
+                db.execute(
+                    "INSERT INTO audit_log (user_id, action, details) VALUES (?, ?, ?)",
+                    (user_id, action, details)
+                )
+                db.commit()
+        except Exception as e:
+            logger.error("Failed to write audit log", error=str(e))
+
+    def get_audit_log(self, limit: int = 50) -> List[Dict[str, Any]]:
+        """Get recent audit log entries"""
+        with sqlite3.connect(self.db_path) as db:
+            db.row_factory = sqlite3.Row
+            cursor = db.execute(
+                "SELECT * FROM audit_log ORDER BY created_at DESC LIMIT ?",
+                (limit,)
+            )
+            return [dict(row) for row in cursor.fetchall()]
 
     def get_expert_by_id(self, expert_id: int) -> Optional[Dict[str, Any]]:
         """Получить эксперта по ID (для других операций)"""

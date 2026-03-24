@@ -1,163 +1,166 @@
-# 🤖 Slack Activity Reminder Bot
+# Slack Activity Reminder Bot
 
-**Activity Control System for Workforce Managers**
+Slack bot for tracking off-platform expert activities. Monitors report submission via Databricks, sends daily reminders to experts, and provides summary reports to managers at 7 PM.
 
-Slack bot designed for systematic tracking of off-platform expert activities — tasks and work performed outside the main working platforms that require manual confirmation in the form of a completed report. Automatically monitors submission status via Databricks, sends daily reminders to experts, and provides summary reports to workforce management teams at 7 PM.
-
-**Status:** Production Ready | **Version:** 1.0
+**Status:** Production Ready | **Python:** 3.10+
 
 ---
 
-## 📋 What It Does
+## How It Works
 
-**For Workforce Managers:**
-- **Report Tracking** — Monitors which experts submitted required reports for off-platform work
-- **Daily Summaries** — 7 PM reports showing completion status and missing submissions
-- **Automated Reminders** — Direct Slack DM notifications to experts who haven't completed reports
-- **Coverage Assurance** — Ensures all off-platform activities are properly documented and confirmed
-
-**Daily Workflow:**
-1. **7 PM Check** — Queries Databricks for submitted reports on configured off-platform activities
-2. **Smart Filtering** — Only checks `monday_subitem_id` (activity types) configured per expert
-3. **Sends Reminders** — DM to experts who haven't submitted required reports
-4. **Manager Reports** — Summary showing who submitted/missed reports sent to workforce managers
-5. **Logs Everything** — Complete audit trail in systemd journalctl + SQLite for compliance
+1. **7 PM Daily Check** — Queries Databricks for submitted activity reports
+2. **Smart Filtering** — Only checks `monday_subitem_id` configured per expert
+3. **Sends Reminders** — DM to experts who haven't submitted reports (with activity form link)
+4. **Manager Reports** — Summary of filled/missing reports sent to all active managers
+5. **Audit Trail** — All admin actions logged to `audit_log` table
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ```
 Slack Workspace (Socket Mode, WSS)
-        ↓
-Slack Reminder Bot (systemd service)
-        ↓
-    ┌───┴───┐
-    ↓       ↓
+        |
+Slack Reminder Bot (Python)
+        |
+    +---+---+
+    |       |
   SQLite   Databricks
  (local)  (HTTPS, token)
 ```
 
-**Database:** 5 tables (experts, expert_subitems, managers, admins, run_log)
+| Component | Technology |
+|-----------|-----------|
+| Slack API | Slack Bolt (Socket Mode) |
+| Scheduling | APScheduler (cron, 19:00 daily) |
+| Database | SQLite |
+| Data Source | Databricks SQL |
+| Logging | structlog |
 
 ---
 
-## 🛠️ Tech Stack
+## Slash Commands
 
-| Component | Technology | Purpose |
-|-----------|-----------|---------|
-| **API** | Slack Bolt (Python) | Slack integration |
-| **Scheduling** | APScheduler (asyncio) | Daily 7 PM check |
-| **Database** | SQLite | Local persistence |
-| **Data Source** | Databricks SQL | Activities warehouse |
-| **Logging** | structlog | Structured logging to journalctl |
-| **Process** | systemd | Auto-restart on failure |
-| **Language** | Python 3.10+ | Runtime |
+All commands require admin access (RBAC check on every call).
 
----
-
-## 🔐 Security
-
-### Q&A for Security Teams
-
-#### **Can any Slack user run commands?**
-**No.** Only admins. Check before every command:
-```python
-if not await self.db.is_admin(user_id):
-    return "❌ No access"
-```
-Admin list stored in SQLite `admins` table (Slack User IDs only).
-
-#### **How are tokens protected?**
-- ✅ Stored in `.env` file (not in code, not in git)
-- ✅ File permissions: `chmod 600` (owner only)
-- ✅ Never logged in any output
-- ✅ No token examples in documentation
-- ⚠️ Manual rotation required (no automated key refresh)
-
-#### **What if bot crashes?**
-- Auto-restart via systemd (10 sec delay)
-- `run_log` table has `UNIQUE(run_date, run_type)` constraint
-- Prevents duplicate reminders on same day
-
-#### **SQL Injection?**
-**No.** All queries use parametrized statements:
-```python
-cursor.execute("SELECT * WHERE worker_id = ?", (worker_id,))
-```
-
-#### **Can Databricks token access other tables?**
-- Token is SELECT-only (no INSERT/UPDATE/DELETE)
-- Scope: one specific table `dmn_core_analytics.cdm.directus_activities_act`
-- App-level filtering by worker_id and date
-- No admin access to Databricks workspace
-
-#### **Slack message security?**
-- Command responses are ephemeral (private to user)
-- Slack Bolt auto-verifies X-Slack-Signature
-- Socket Mode uses WSS (encrypted WebSocket)
-- No incoming ports exposed
-
-#### **What happens if .env is compromised?**
-- All three tokens (SLACK_BOT, SLACK_APP, DATABRICKS) would be exposed
-- Immediate rotation required:
-  - Create new tokens in respective platforms
-  - Update .env
-  - Restart service: `systemctl restart slack-reminder-bot`
-- Recommend: backup .env separately + access monitoring
-
-#### **Rate limiting?**
-- Slack handles rate limits (built-in)
-- Bot retries on failure: exponential backoff (2s → 4s → 8s)
-- No custom rate limiting in code
-
-#### **Separate prod/sandbox keys?**
-- **No.** Single `.env` for all environments
-- Recommend: separate `.env.prod` and `.env.sandbox` if expanding
-- Current design assumes single-instance deployment
-
-#### **Admin audit trail?**
-- All commands logged to journalctl with user_id and action
-- Example: `Expert added (user_id=U123, worker_id=abc, action=expert_add)`
-- Never logs: names, emails, slack_ids, sensitive parameters
-
-#### **Outbound connections only?**
-- ✅ Socket Mode (WebSocket to Slack)
-- ✅ HTTPS to Databricks
-- ✅ No listening ports
-- ✅ No incoming firewall rules needed
+| Command | Description |
+|---------|-------------|
+| `/bot-help` | Show bot status |
+| `/expert-add` | Add expert (worker_id, slack_id, name) |
+| `/expert-remove` | Remove expert by worker_id |
+| `/expert-list` | List all experts with status |
+| `/expert-toggle` | Enable/disable expert |
+| `/manager-add` | Add manager (slack_id, name) |
+| `/manager-remove` | Remove manager |
+| `/manager-list` | List managers |
+| `/admin-add` | Add admin |
+| `/admin-remove` | Remove admin |
+| `/admin-list` | List admins |
+| `/subitem-add` | Add monday subitem to expert |
+| `/subitem-remove` | Remove subitem |
+| `/subitem-list` | List subitems for expert |
+| `/subitem-toggle` | Enable/disable subitem |
+| `/bot-run-now` | Trigger 7 PM check manually |
+| `/bot-status` | Show recent run log |
+| `/audit-log` | View admin action history |
 
 ---
 
-## 📊 Logging
-
-**What's logged:**
-- Command executions (user_id, action, resource_id)
-- Daily check results (timestamp, count, status)
-- Connection events (Slack Socket Mode, Databricks)
-- Errors and retries (with exponential backoff info)
-
-**Storage:**
-- **systemd journalctl** — Real-time + searchable history
-- **SQLite run_log** — Execution history with completion status
-- **Slack** — Command confirmations in ephemeral messages
-
-**What's NOT logged:**
-- ❌ Slack/Databricks tokens
-- ❌ Personal names or emails
-- ❌ Full command parameters
-- ❌ Expert slack_ids
-
----
-
-## 🗄️ Database Schema
+## Database Schema
 
 | Table | Purpose |
 |-------|---------|
-| `experts` | Employee records (worker_id, slack_user_id, name, active) |
-| `expert_subitems` | Which monday subitems to track per expert |
+| `experts` | worker_id, slack_user_id, name, active |
+| `expert_subitems` | monday_subitem_id per expert |
 | `managers` | Who receives daily reports |
-| `admins` | Who can execute /commands |
-| `run_log` | Execution history (prevents duplicate reminders) |
+| `admins` | Who can execute commands |
+| `run_log` | Execution history (UNIQUE per date+type) |
+| `audit_log` | Admin action audit trail |
 
-**Protection:** `UNIQUE(run_date, run_type)` in run_log prevents duplicate reminders if bot restarts same day.
+---
+
+## Setup
+
+### 1. Clone and install
+
+```bash
+git clone <repo-url>
+cd reminder_bot_toloka
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+### 2. Configure environment
+
+```bash
+cp .env.example .env
+chmod 600 .env
+# Edit .env with your tokens
+```
+
+Required variables:
+- `SLACK_BOT_TOKEN` — Bot User OAuth Token (`xoxb-...`)
+- `SLACK_APP_TOKEN` — App-Level Token (`xapp-...`)
+- `DATABRICKS_HOST` — Databricks workspace URL
+- `DATABRICKS_HTTP_PATH` — SQL warehouse HTTP path
+- `DATABRICKS_TOKEN` — Databricks PAT
+- `INITIAL_ADMIN_SLACK_ID` — First admin's Slack User ID
+- `TIMEZONE` — Scheduler timezone (default: `Europe/Berlin`)
+
+### 3. Slack App Configuration
+
+Required Bot Token Scopes:
+- `commands` — Slash commands
+- `chat:write` — Send messages
+- `im:write` — Send DMs
+- `users:read` — User info
+
+Enable **Socket Mode** in app settings.
+
+### 4. Run
+
+```bash
+python bot.py
+```
+
+For production, use `screen` or systemd:
+```bash
+# screen
+screen -d -m -S reminder_bot bash -c './venv/bin/python bot.py'
+
+# systemd (see slack-reminder-bot.service)
+sudo systemctl enable slack-reminder-bot
+sudo systemctl start slack-reminder-bot
+```
+
+---
+
+## Security
+
+- **RBAC** — Admin check on every command via `admins` table
+- **Input Validation** — Regex validation for Slack IDs and worker IDs
+- **Audit Logging** — All mutating admin actions recorded with user_id, action, details
+- **Credentials** — `.env` file only, never logged, excluded from git
+- **Socket Mode** — No incoming ports, outbound WSS only
+- **SQL Injection** — All queries use parameterized statements
+- **Single Instance** — PID file prevents duplicate processes
+- **Duplicate Prevention** — `UNIQUE(run_date, run_type)` prevents double reminders
+
+---
+
+## Project Structure
+
+```
+bot.py                  # Entry point, Slack app init
+admin_handlers.py       # All slash command handlers
+scheduler.py            # APScheduler with daily 7 PM job
+notifier.py             # Slack message sending
+databricks_client.py    # Databricks SQL queries
+db.py                   # SQLite database layer
+config.py               # Environment config with validation
+requirements.txt        # Python dependencies
+.env.example            # Environment template
+.gitignore              # Excludes .env, data/, *.db, *.pid
+slack-reminder-bot.service  # systemd unit file
+```

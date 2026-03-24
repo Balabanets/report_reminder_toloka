@@ -3,6 +3,7 @@
 import threading
 import logging
 import sys
+import os
 from slack_bolt.app import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 import structlog
@@ -11,6 +12,21 @@ from db import Database
 from notifier import Notifier
 from scheduler import Scheduler
 from admin_handlers import AdminHandlers
+
+# Ensure only one instance runs
+PIDFILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "bot.pid")
+if os.path.exists(PIDFILE):
+    try:
+        with open(PIDFILE, 'r') as f:
+            old_pid = int(f.read().strip())
+        os.kill(old_pid, 0)
+        print(f"Bot already running (PID {old_pid}), exiting", file=sys.stderr)
+        sys.exit(1)
+    except (ProcessLookupError, ValueError):
+        pass
+
+with open(PIDFILE, 'w') as f:
+    f.write(str(os.getpid()))
 
 # Настройка логирования
 logging.basicConfig(
@@ -38,13 +54,9 @@ structlog.configure(
 
 logger = structlog.get_logger()
 
-# Инициализация Slack приложения
-# signing_secret для защиты от MITM атак (требуется для HTTP webhooks)
-# Socket Mode использует WebSocket для безопасной коммуникации
-app = App(
-    token=config.SLACK_BOT_TOKEN,
-    signing_secret=config.SLACK_SIGNING_SECRET if config.SLACK_SIGNING_SECRET else None
-)
+# Socket Mode uses WebSocket (App Token) for secure communication
+# No signing_secret needed — it's only required for HTTP webhook mode
+app = App(token=config.SLACK_BOT_TOKEN)
 
 # Глобальные объекты
 db = None
@@ -52,6 +64,12 @@ notifier = None
 scheduler = None
 handlers = None
 handler = None
+
+# Логировать ВСЕ события для отладки
+@app.middleware
+def log_request(body, next):
+    logger.info("Incoming event", event_type=body.get("type"), command=body.get("command"))
+    next()
 
 
 def initialize():
@@ -87,18 +105,18 @@ def initialize():
 
 @app.event("app_mention")
 def handle_mention(body, say):
-    """Обработчик упоминаний бота"""
-    say("👋 Привет! Используй `/bot-help` для списка команд.")
+    """Handle bot mentions"""
+    say("👋 Hi! Use `/bot-help` to see the list of commands.")
 
 
 @app.command("/bot-help")
 def handle_help(ack, body, client, command):
-    """Обработчик команды /bot-help"""
+    """Handle /bot-help command"""
     logger.info("handle_help called", user_id=body.get("user_id"))
     ack()
     user_id = body.get("user_id")
     channel_id = body.get("channel_id")
-    text = "✅ БОТ РАБОТАЕТ!\n\nКоманды активны. Используй /expert-list или другие команды."
+    text = "✅ BOT IS RUNNING!\n\nCommands are active. Use /expert-list or other commands."
     try:
         client.chat_postEphemeral(
             channel=channel_id,
